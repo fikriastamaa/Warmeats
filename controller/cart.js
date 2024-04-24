@@ -132,23 +132,62 @@ const postMenuToCart = async (req, res, next) => {
 const deleteCart = async (req, res, next) => {
   try {
     const { id_menu } = req.params;
-    const targetedCart = await Cart.destroy({
-      where: {
-        menuId: id_menu,
-      },
-    });
+    const authorization = req.headers.authorization;
+    let token;
 
-    if (!targetedCart) {
-      const error = new Error(`Cart with id ${id_menu} is not existed`);
+    if (authorization && authorization.startsWith("Bearer ")) {
+      token = authorization.substring(7);
+    } else {
+      const error = new Error("You need to login");
       error.statusCode = 400;
       throw error;
     }
+
+    const decoded = jwt.verify(token, key);
+
+    //decoded akan punya payload/data role & userId
+    const loggedUser = await User.findOne({
+      where: {
+        id: decoded.userId,
+      },
+    });
+
+    if (!loggedUser) {
+      const error = new Error(`User with id ${decoded.userId} does not exist!`);
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const userId = decoded.userId;
+
+    // Memeriksa apakah pengguna memiliki izin untuk mengakses cart
+    const cartToDelete = await Cart.findOne({
+      where: {
+        menuId: id_menu,
+        userId: userId,
+      },
+    });
+
+    if (!cartToDelete) {
+      const error = new Error(`You are not authorized to delete this cart`);
+      error.statusCode = 403; // Forbidden
+      throw error;
+    }
+
+    // Lakukan penghapusan cart
+    await Cart.destroy({
+      where: {
+        menuId: id_menu,
+        userId: userId,
+      },
+    });
 
     res.status(200).json({
       status: "Success",
       message: `Successfully delete Cart data with id ${id_menu}`,
     });
   } catch (error) {
+    console.log(error.message);
     res.status(error.statusCode || 500).json({
       status: "Error",
       message: error.message,
@@ -158,41 +197,50 @@ const deleteCart = async (req, res, next) => {
 
 const updateCart = async (req, res, next) => {
   try {
-    const { menu_id } = req.params;
-    const { quantity } = req.body;
-
-    const currentCart = await Cart.findOne({
-      where: {
-        menuId: menu_id,
-      },
-    });
-
-    if (!currentCart) {
-      const error = new Error(`Cart with id ${menu_id} is not existed`);
+    const authorization = req.headers.authorization;
+    let token;
+    if (authorization && authorization.startsWith("Bearer ")) {
+      token = authorization.substring(7);
+    } else {
+      const error = new Error("You need to login");
       error.statusCode = 400;
       throw error;
     }
 
-    await Cart.update(
-      {
-        quantity,
-      },
-      {
-        where: {
-          menuId: currentCart.menuId,
-        },
-      }
-    );
+    const decoded = jwt.verify(token, key);
 
-    const updatedCart = await Cart.findOne({
+    //decoded akan punya payload/data role & userId
+    const loggedUser = await User.findOne({
       where: {
-        menuId: currentCart.menuId,
+        id: decoded.userId,
       },
     });
 
+    if (!loggedUser) {
+      const error = new Error(`User with id ${decoded.userId} does not exist!`);
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const { id_menu, quantity } = req.body;
+    const userId = decoded.userId;
+
+    // Memeriksa apakah pengguna memiliki izin untuk mengakses cart
+    if (!(await isUserAuthorized(userId, id_menu))) {
+      const error = new Error(`You are not authorized to update this cart`);
+      error.statusCode = 403; // Forbidden
+      throw error;
+    }
+
+    // Lakukan pembaruan cart
+    const updatedCart = await Cart.update(
+      { quantity },
+      { where: { menuId: id_menu, userId: userId } }
+    );
+
     res.status(200).json({
       status: "Success",
-      message: `Successfully update Cart data with id ${currentCart.menuId}`,
+      message: `Successfully updated Cart data with id ${id_menu}`,
       updated: {
         updatedCart,
       },
@@ -203,6 +251,17 @@ const updateCart = async (req, res, next) => {
       status: "Error",
       message: error.message,
     });
+  }
+};
+
+// Fungsi untuk memeriksa otorisasi pengguna terhadap cart
+const isUserAuthorized = async (userId, menuId) => {
+  try {
+    const cart = await Cart.findOne({ where: { menuId, userId } });
+    return cart !== null;
+  } catch (error) {
+    console.log(error.message);
+    return false;
   }
 };
 

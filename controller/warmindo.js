@@ -2,9 +2,10 @@ require("dotenv").config();
 const Warmindo = require("../model/Warmindo");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const { picture } = require("../util/cloudinary_config");
 const key = process.env.TOKEN_SECRET_KEY;
-//const cloudinary = require("../util/cloudinary_config");
-//const fs = require("fs");
+const cloudinary = require("../util/cloudinary_config");
+const fs = require("fs");
 
 const getAllWarmindo = async (req, res, next) => {
   try {
@@ -110,7 +111,6 @@ const deleteWarmindo = async (req, res, next) => {
 const updateWarmindo = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { name, address } = req.body;
 
     const currentWarmindo = await Warmindo.findOne({
       where: {
@@ -124,47 +124,54 @@ const updateWarmindo = async (req, res, next) => {
       throw error;
     }
 
-    // let imageUrl;
-    // //proses datanya
-    // if (req.file) {
-    //   const file = req.file;
+    let pictureUrl = currentWarmindo.picture; // Inisialisasi URL gambar dengan gambar yang sudah ada
 
-    //   const uploadOption = {
-    //     folder: "Profile_Member/",
-    //     public_id: `user_${currentUser.id}`,
-    //     overwrite: true,
-    //   };
+    // Proses upload gambar baru ke Cloudinary jika ada file yang diunggah
+    if (req.file) {
+      const file = req.file;
 
-    //   const uploadFile = await cloudinary.uploader.upload(
-    //     file.path,
-    //     uploadOption
-    //   );
+      // Konfigurasi upload ke Cloudinary
+      const uploadOptions = {
+        folder: "warmindo_profile/", // Folder di Cloudinary untuk menyimpan gambar warmindo
+        public_id: `warmindo_${id}`, // Nama public_id unik untuk gambar warmindo
+        overwrite: true,
+      };
 
-    //   //didapat image URL
-    //   imageUrl = uploadFile.secure_url;
+      // Upload gambar ke Cloudinary
+      const uploadResult = await cloudinary.uploader.upload(
+        file.path,
+        uploadOptions
+      );
 
-    //   //ngehapus file yang diupload didalam dir lokal
-    //   fs.unlinkSync(file.path);
-    // }
+      // Dapatkan URL gambar yang diunggah
+      pictureUrl = uploadResult.secure_url;
 
-    const updatedWarmindo = await Warmindo.update(
-      {
-        name,
-        address,
+      // Hapus file yang diunggah dari direktori lokal setelah diunggah ke Cloudinary
+      fs.unlinkSync(file.path);
+    }
+
+    await currentWarmindo.update({
+      name: req.body.name || currentWarmindo.name,
+      address: req.body.address || currentWarmindo.address,
+      picture: pictureUrl,
+    });
+
+    // Update data warmindo di database
+    const updatedWarmindo = await Warmindo.findOne({
+      where: {
+        id: currentWarmindo.id,
       },
-      {
-        where: {
-          id: currentWarmindo.id,
-        },
-      }
-    );
+      attributes: ["id", "name", "address", "picture"],
+    });
 
     res.status(200).json({
       status: "Success",
       message: `Successfully update warmindo data with id ${id}`,
       updated: {
-        name: currentWarmindo.name,
-        address: currentWarmindo.address,
+        id: updatedWarmindo.id,
+        name: updatedWarmindo.name,
+        address: updatedWarmindo.address,
+        picture: updatedWarmindo.picture,
       },
     });
   } catch (error) {

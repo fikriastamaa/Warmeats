@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const upload = require('../middleware/upload_file');
 
 const {
     postUser, loginHandler, editProfile, editPassword, getUserByToken, editUserAddress
@@ -15,7 +16,7 @@ router.post("/api/users/login", loginHandler);
 router.get("/api/users/fetch-by-token", getUserByToken);
 
 //user edit profile
-router.put("/api/users/edit-profile", editProfile);
+router.put("/api/users/edit-profile", upload, editProfile);
 
 //user edit password
 router.put("/api/users/edit-password", editPassword);

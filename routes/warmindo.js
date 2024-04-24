@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const upload = require("../middleware/upload_file")
 
 const {
   getAllWarmindo,
@@ -19,7 +20,7 @@ router.get("/api/warmindos/:id", getWarmindoById);
 router.post("/api/warmindos/add-warmindo", postWarmindo);
 
 //update warmindo data
-router.put("/api/warmindos/:id", updateWarmindo);
+router.put("/api/warmindos/:id", upload, updateWarmindo);
 
 //delete warmindo data
 router.delete("/api/warmindos/:id", deleteWarmindo);

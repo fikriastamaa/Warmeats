@@ -6,8 +6,8 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const { where } = require("sequelize");
 const key = process.env.TOKEN_SECRET_KEY;
-//const cloudinary = require("../util/cloudinary_config");
-//const fs = require("fs");
+const cloudinary = require("../util/cloudinary_config");
+const fs = require("fs");
 
 const getAllMenu = async (req, res, next) => {
   try {
@@ -176,7 +176,6 @@ const deleteMenu = async (req, res, next) => {
 const updateMenu = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { name, price, picture } = req.body;
 
     const currentMenu = await Menu.findOne({
       where: {
@@ -190,49 +189,54 @@ const updateMenu = async (req, res, next) => {
       throw error;
     }
 
-    // let imageUrl;
-    // //proses datanya
-    // if (req.file) {
-    //   const file = req.file;
+    let pictureUrl = currentMenu.picture; // Inisialisasi URL gambar dengan gambar yang sudah ada
 
-    //   const uploadOption = {
-    //     folder: "Profile_Member/",
-    //     public_id: `user_${currentUser.id}`,
-    //     overwrite: true,
-    //   };
+    // Proses upload gambar baru ke Cloudinary jika ada file yang diunggah
+    if (req.file) {
+      const file = req.file;
 
-    //   const uploadFile = await cloudinary.uploader.upload(
-    //     file.path,
-    //     uploadOption
-    //   );
+      // Konfigurasi upload ke Cloudinary
+      const uploadOptions = {
+        folder: "warmeats_menu/", // Folder di Cloudinary untuk menyimpan gambar menu
+        public_id: `menu_${id}`, // Nama public_id unik untuk gambar menu
+        overwrite: true,
+      };
 
-    //   //didapat image URL
-    //   imageUrl = uploadFile.secure_url;
+      // Upload gambar ke Cloudinary
+      const uploadResult = await cloudinary.uploader.upload(
+        file.path,
+        uploadOptions
+      );
 
-    //   //ngehapus file yang diupload didalam dir lokal
-    //   fs.unlinkSync(file.path);
-    // }
+      // Dapatkan URL gambar yang diunggah
+      pictureUrl = uploadResult.secure_url;
 
-    const updatedMenu = await Menu.update(
-      {
-        name,
-        price,
-        picture,
+      // Hapus file yang diunggah dari direktori lokal setelah diunggah ke Cloudinary
+      fs.unlinkSync(file.path);
+    }
+
+    await currentMenu.update({
+      name: req.body.name || currentMenu.name,
+      price: req.body.price || currentMenu.price,
+      picture: pictureUrl,
+    });
+
+    // Update data menu di database
+    const updatedMenu = await Menu.findOne({
+      where: {
+        id: currentMenu.id,
       },
-      {
-        where: {
-          id: currentMenu.id,
-        },
-      }
-    );
+      attributes: ["id", "name", "price", "picture"],
+    });
 
     res.status(200).json({
       status: "Success",
       message: `Successfully update menu data with id ${id}`,
       updated: {
-        name: currentMenu.name,
-        price: currentMenu.address,
-        picture: currentMenu.picture,
+        id: updatedMenu.id,
+        name: updatedMenu.name,
+        price: updatedMenu.price,
+        picture: updatedMenu.picture,
       },
     });
   } catch (error) {

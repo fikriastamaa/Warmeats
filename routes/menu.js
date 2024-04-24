@@ -7,6 +7,7 @@ const {
   deleteMenu,
   getMenuByWarmindoId,
 } = require("../controller/menu");
+const upload = require("../middleware/upload_file");
 const router = express.Router();
 
 //Register new menu
@@ -22,7 +23,7 @@ router.get("/api/menus/fetch-all/:warmindoId", getMenuByWarmindoId);
 router.get("/api/menus/:id", getMenuById);
 
 //update menu
-router.put("/api/menus/:id", updateMenu);
+router.put("/api/menus/:id", upload, updateMenu);
 
 //delete menu
 router.delete("/api/menus/:id", deleteMenu);

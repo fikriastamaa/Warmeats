@@ -3,8 +3,8 @@ const User = require("../model/User");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const key = process.env.TOKEN_SECRET_KEY;
-//const cloudinary = require("../util/cloudinary_config");
-//const fs = require("fs");
+const cloudinary = require("../util/cloudinary_config");
+const fs = require("fs");
 
 // const getAllUser = async (req, res, next) => {
 //   try {
@@ -49,6 +49,13 @@ const key = process.env.TOKEN_SECRET_KEY;
 const postUser = async (req, res, next) => {
   try {
     const { fullName, password, email, phoneNumber } = req.body;
+
+    // Pemeriksaan apakah password adalah string yang valid
+    // if (typeof password !== 'string') {
+    //   throw new Error('Invalid password');
+    // }
+
+    //const salt = await bcrypt.genSalt()
 
     //hashed password user
     const hashedPassword = await bcrypt.hash(password, 5);
@@ -252,89 +259,91 @@ const getUserByToken = async (req, res, next) => {
 //edit user account (fullname, profile)
 const editProfile = async (req, res, next) => {
   try {
-    //ambil req body
-    const {fullName} = req.body;
-
-    //ekstrak tokennya
+    // Ekstrak tokennya
     const authorization = req.headers.authorization;
     let token;
-    if (authorization !== null && authorization.startsWith("Bearer ")) {
+    if (authorization && authorization.startsWith("Bearer ")) {
       token = authorization.substring(7);
     } else {
       const error = new Error("You need to login");
-      error.statusCode(403);
+      error.statusCode = 403;
       throw error;
     }
     const decoded = jwt.verify(token, key);
 
-    //cari usernya
+    // Cari usernya
     const currentUser = await User.findOne({
       where: {
         id: decoded.userId,
       },
     });
+
     if (!currentUser) {
-      const error = new Error(`User with id ${id} not exist!`);
+      const error = new Error(`User with id ${decoded.userId} does not exist!`);
       error.statusCode = 400;
       throw error;
     }
 
-    // let imageUrl;
-    // //proses datanya
-    // if (req.file) {
-    //   const file = req.file;
+    let imageUrl = currentUser.profilePicture;
 
-    //   const uploadOption = {
-    //     folder: "Profile_Member/",
-    //     public_id: `user_${currentUser.id}`,
-    //     overwrite: true,
-    //   };
+    // Proses datanya
+    if (req.file) {
+      const file = req.file;
 
-    //   const uploadFile = await cloudinary.uploader.upload(
-    //     file.path,
-    //     uploadOption
-    //   );
+      const uploadOption = {
+        folder: "Profile_Member/",
+        public_id: `user_${currentUser.id}`,
+        overwrite: true,
+      };
 
-    //   //didapat image URL
-    //   imageUrl = uploadFile.secure_url;
+      const uploadFile = await cloudinary.uploader.upload(file.path, uploadOption);
 
-    //   //ngehapus file yang diupload didalam dir lokal
-    //   fs.unlinkSync(file.path);
-    // }
+      // Dapatkan image URL
+      imageUrl = uploadFile.secure_url;
 
-    //update data user
-    //image url bakal diupdate kedalam database user bersangkutan
-    await User.update(
-      {
-        fullName,
-        //profilePicture: imageUrl
-      },
-      {
-        where: {
-          id: currentUser.id,
-        },
-      }
-    );
+      // Hapus file yang diupload dari direktori lokal
+      fs.unlinkSync(file.path);
+    }
 
-    const targetedUser = await User.findOne({
+    // Update data user
+    // Image URL akan diupdate ke dalam database user bersangkutan
+    await currentUser.update({
+      fullName: req.body.fullName || currentUser.fullName,
+      email: req.body.email || currentUser.email,
+      phoneNumber: req.body.phoneNumber || currentUser.phoneNumber,
+      profilePicture: imageUrl,
+    });
+
+    // Ambil data user setelah diupdate
+    const updatedUser = await User.findOne({
       where: {
         id: currentUser.id,
       },
-      attributes: ["id", "fullname", "profilePicture"]
+      attributes: ["id", "fullName", "email", "phoneNumber", "profilePicture"],
     });
 
+    // Kirim respons berhasil dengan data user yang telah diupdate
     res.status(200).json({
       status: "Success",
-      message: "Successfully edit user data",
-      user: targetedUser,
+      message: "Successfully edited user data",
+      user: {
+        id: updatedUser.id,
+        fullName: updatedUser.fullName,
+        email: updatedUser.email,
+        phoneNumber: updatedUser.phoneNumber,
+        profilePicture: updatedUser.profilePicture,
+      }
     });
+
   } catch (error) {
+    // Tangani error dengan mengirim respons error
     res.status(error.statusCode || 500).json({
       status: "Error",
       message: error.message,
     });
   }
 };
+
 
 const editPassword = async (req, res, next) => {
   try {
@@ -396,7 +405,7 @@ const editPassword = async (req, res, next) => {
       where: {
         id: currentUser.id,
       },
-      attributes: ["id", "fullname"]
+      attributes: ["id", "fullName", "password"]
     });
 
     res.status(200).json({

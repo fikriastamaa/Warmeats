@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Data Warmindo</title>
+  <!-- Bootstrap CSS -->
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+  <!-- Custom CSS -->
+  <style>
+    .card {
+      transition: transform 0.3s;
+    }
+    .card:hover {
+      transform: scale(1.05);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container mt-5">
+    <h2>Data Warmindo</h2>
+    <div class="row" id="warmindoList">
+      <!-- Data Warmindo akan ditambahkan di sini -->
+    </div>
+  </div>
+
+  <!-- jQuery -->
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <!-- Bootstrap JS -->
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+  <script>
+    $(document).ready(function() {
+      // Lakukan permintaan AJAX untuk mengambil data Warmindo dari backend
+      $.ajax({
+        url: 'http://localhost:3307/api/warmindos/fetch-all', // Sesuaikan dengan endpoint yang Anda miliki
+        method: 'GET',
+        success: function(response) {
+          // Ketika permintaan berhasil, tambahkan data Warmindo ke dalam daftar kartu
+          response.warmindo.forEach(function(warmindo, index) {
+            $('#warmindoList').append(`
+              <div class="col-md-4 mb-4">
+                <div class="card" style="width: 18rem;">
+                  <img src="${warmindo.picture}" class="card-img-top" alt="${warmindo.name}">
+                  <div class="card-body">
+                    <h5 class="card-title">${warmindo.name}</h5>
+                    <p class="card-text">${warmindo.address}</p>
+                    <!-- Tambahkan kolom lainnya di sini jika diperlukan -->
+                  </div>
+                </div>
+              </div>
+            `);
+          });
+        },
+        error: function(xhr, status, error) {
+          console.error('Error:', error);
+        }
+      });
+    });
+  </script>
+</body>
+</html>
