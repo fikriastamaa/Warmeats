@@ -48,31 +48,37 @@ const fs = require("fs");
 //handler register new user
 const postUser = async (req, res, next) => {
   try {
-    const { fullName, password, email, phoneNumber } = req.body;
+    // Dapatkan data pengguna dari body permintaan
+    const { fullName, email, phoneNumber, password } = req.body;
 
-    // Pemeriksaan apakah password adalah string yang valid
-    // if (typeof password !== 'string') {
-    //   throw new Error('Invalid password');
-    // }
+    // Validasi apakah semua data diterima
+    if (!fullName || !email || !phoneNumber || !password) {
+      return res.status(400).json({ message: "All fields are required" });
+    }
 
-    //const salt = await bcrypt.genSalt()
+    // Validasi apakah email sudah digunakan sebelumnya
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ message: "Email is already registered" });
+    }
 
-    //hashed password user
-    const hashedPassword = await bcrypt.hash(password, 5);
+    // Hash password sebelum disimpan ke database
+    const hashedPassword = await bcrypt.hash(password, 10); // Cost factor disetel ke 10
 
-    //insert data ke tabel User
-    const currentUser = await User.create({
+    // Simpan data pengguna baru ke database
+    const newUser = await User.create({
       fullName,
-      password: hashedPassword,
       email,
       phoneNumber,
-      role: "CUSTOMER",
+      password: hashedPassword,
+      role: "CUSTOMER", // Atur role sesuai kebutuhan Anda
     });
 
+    // Buat token JWT untuk autentikasi
     const token = jwt.sign(
       {
-        userId: currentUser.id,
-        role: currentUser.role,
+        userId: newUser._id,
+        role: newUser.role,
       },
       key,
       {
@@ -81,18 +87,16 @@ const postUser = async (req, res, next) => {
       }
     );
 
-    //send response
+    // Kirim respons berhasil dengan token
     res.status(201).json({
       status: "success",
-      message: "Register Successfull!",
+      message: "Registration successful!",
       token,
     });
   } catch (error) {
-    //jika status code belum terdefined maka status = 500;
-    res.status(error.statusCode || 500).json({
-      status: "Error",
-      message: error.message,
-    });
+    console.error("Error:", error);
+    // Tangani kesalahan dan kirim respons dengan status error
+    res.status(500).json({ status: "error", message: "Internal server error" });
   }
 };
 

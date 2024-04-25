@@ -86,10 +86,12 @@
             <p>Check Our <span>Warmeats Menu and Warmindo</span></p>
           </div>
 
-          <div class="container" data-aos="fade-up" data-aos-delay="300">
-            <div class="section-header">
+          <div class="tab-content" data-aos="fade-up" data-aos-delay="300">
+            <div class="tab-pane fade active show" id="menu-starters">
+              <div class="tab-header text-center">
                 <p>Menu</p>
                 <h3>Starters</h3>
+              </div>
 
                 <div class="row gy-5" id="menu-list">
               
